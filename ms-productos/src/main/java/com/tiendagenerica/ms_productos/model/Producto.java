@@ -10,7 +10,8 @@ import lombok.Data;
 public class Producto {
 
     @Id
-    private Long codigoProducto;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long codigoProducto;  // ← la BD lo genera automáticamente
 
     @NotBlank(message = "El nombre del producto es obligatorio")
     @Size(max = 50, message = "El nombre no puede superar 50 caracteres")
@@ -24,7 +25,6 @@ public class Producto {
     @NotNull(message = "El precio de compra es obligatorio")
     @Column(name = "precio_compra", nullable = false)
     private Double precioCompra;
-
     @NotNull(message = "El IVA de compra es obligatorio")
     @Column(name = "ivacompra", nullable = false)
     private Double ivacompra;

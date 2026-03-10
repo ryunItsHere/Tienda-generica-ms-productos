@@ -1,16 +1,18 @@
 package com.tiendagenerica.ms_productos.service;
 
+import com.tiendagenerica.ms_productos.client.ProveedorClient;
+import com.tiendagenerica.ms_productos.dto.ProductoDTO;
 import com.tiendagenerica.ms_productos.model.Producto;
 import com.tiendagenerica.ms_productos.repository.ProductoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class ProductoService {
@@ -18,133 +20,145 @@ public class ProductoService {
     @Autowired
     private ProductoRepository productoRepository;
 
+    @Autowired
+    private ProveedorClient proveedorClient;
+
     @Value("${validar.proveedor.activo}")
     private boolean validarProveedor;
 
     // ─────────────────────────────────────────
-    // CRUD básico
+    // Guardar producto
     // ─────────────────────────────────────────
+    public Producto guardarProducto(ProductoDTO dto) {
 
-    public List<Producto> listarTodos() {
+        // Validación del NIT con MS-Proveedores
+        if (validarProveedor) {
+            boolean existe = proveedorClient
+                .existeProveedor(dto.getNitproveedor());
+
+            if (!existe) {
+                throw new RuntimeException(
+                    "El proveedor con NIT " 
+                    + dto.getNitproveedor() 
+                    + " no existe en el sistema");
+            }
+        }
+
+        Producto producto = new Producto();
+        producto.setNombreProducto(dto.getNombreProducto());
+        producto.setNitproveedor(dto.getNitproveedor());
+        producto.setPrecioCompra(dto.getPrecioCompra());
+        producto.setIvacompra(dto.getIvacompra());
+        producto.setPrecioVenta(dto.getPrecioVenta());
+
+        return productoRepository.save(producto);
+    }
+
+    // ─────────────────────────────────────────
+    // Listar todos
+    // ─────────────────────────────────────────
+    public List<Producto> listarProductos() {
         return productoRepository.findAll();
     }
 
-    public Producto buscarPorCodigo(Long codigo) {
-        return productoRepository.findById(codigo)
-                .orElseThrow(() -> new RuntimeException(
-                        "Producto no encontrado con código: " + codigo));
-    }
-
-    public Producto guardar(Producto producto) {
-        return productoRepository.save(producto);
-    }
-
-    public Producto actualizar(Long codigo, Producto producto) {
-        if (!productoRepository.existsById(codigo)) {
-            throw new RuntimeException(
-                    "Producto no encontrado con código: " + codigo);
-        }
-        producto.setCodigoProducto(codigo);
-        return productoRepository.save(producto);
-    }
-
-    public void eliminar(Long codigo) {
-        if (!productoRepository.existsById(codigo)) {
-            throw new RuntimeException(
-                    "Producto no encontrado con código: " + codigo);
-        }
-        productoRepository.deleteById(codigo);
+    // ─────────────────────────────────────────
+    // Buscar por código
+    // ─────────────────────────────────────────
+    public Optional<Producto> buscarPorCodigo(Long codigo) {
+        return productoRepository.findById(codigo);
     }
 
     // ─────────────────────────────────────────
-    // Carga masiva por CSV
+    // Actualizar producto
     // ─────────────────────────────────────────
+    public Producto actualizarProducto(Long codigo, 
+                                        ProductoDTO dto) {
+        Producto producto = productoRepository.findById(codigo)
+            .orElseThrow(() -> new RuntimeException(
+                "Producto no encontrado con código: " + codigo));
 
+        // Valida NIT si cambió
+        if (validarProveedor && 
+            !producto.getNitproveedor()
+                     .equals(dto.getNitproveedor())) {
+
+            boolean existe = proveedorClient
+                .existeProveedor(dto.getNitproveedor());
+
+            if (!existe) {
+                throw new RuntimeException(
+                    "El proveedor con NIT " 
+                    + dto.getNitproveedor() 
+                    + " no existe en el sistema");
+            }
+        }
+
+        producto.setNombreProducto(dto.getNombreProducto());
+        producto.setNitproveedor(dto.getNitproveedor());
+        producto.setPrecioCompra(dto.getPrecioCompra());
+        producto.setIvacompra(dto.getIvacompra());
+        producto.setPrecioVenta(dto.getPrecioVenta());
+
+        return productoRepository.save(producto);
+    }
+
+    // ─────────────────────────────────────────
+    // Eliminar producto
+    // ─────────────────────────────────────────
+    public void eliminarProducto(Long codigo) {
+        Producto producto = productoRepository.findById(codigo)
+            .orElseThrow(() -> new RuntimeException(
+                "Producto no encontrado con código: " + codigo));
+        productoRepository.delete(producto);
+    }
+
+    // ─────────────────────────────────────────
+    // Cargar desde CSV
+    // ─────────────────────────────────────────
     public String cargarDesdeCSV(MultipartFile archivo) {
-
-        // Valida que el archivo no esté vacío
-        if (archivo.isEmpty()) {
-            throw new RuntimeException("El archivo está vacío");
-        }
-
-        // Valida que sea un archivo CSV
-        String nombreArchivo = archivo.getOriginalFilename();
-        if (nombreArchivo == null || !nombreArchivo.endsWith(".csv")) {
-            throw new RuntimeException("El archivo debe ser formato CSV");
-        }
-
-        List<Producto> productosGuardados = new ArrayList<>();
-        List<String> errores = new ArrayList<>();
-        int linea = 0;
+        int exitosos = 0;
+        int fallidos = 0;
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(archivo.getInputStream()))) {
 
-            String fila;
-            while ((fila = reader.readLine()) != null) {
-                linea++;
+            String linea;
+            boolean primeraLinea = true;
 
-                // Salta la primera línea si es encabezado
-                if (linea == 1 && fila.toLowerCase()
-                        .contains("codigo")) {
-                    continue;
-                }
-
-                // Separa los valores por coma
-                String[] campos = fila.split(",");
-
-                // Valida que tenga exactamente 6 columnas
-                if (campos.length != 6) {
-                    errores.add("Línea " + linea +
-                            ": debe tener 6 columnas");
+            while ((linea = reader.readLine()) != null) {
+                if (primeraLinea) {
+                    primeraLinea = false;
                     continue;
                 }
 
                 try {
-                    Producto producto = new Producto();
-                    producto.setCodigoProducto(
-                            Long.parseLong(campos[0].trim()));
-                    producto.setNombreProducto(campos[1].trim());
-                    producto.setNitproveedor(
-                            Long.parseLong(campos[2].trim()));
-                    producto.setPrecioCompra(
-                            Double.parseDouble(campos[3].trim()));
-                    producto.setIvacompra(
-                            Double.parseDouble(campos[4].trim()));
-                    producto.setPrecioVenta(
-                            Double.parseDouble(campos[5].trim()));
+                    String[] datos = linea.split(",");
+                    ProductoDTO dto = new ProductoDTO();
+                    dto.setNombreProducto(datos[0].trim());
+                    dto.setNitproveedor(Long.parseLong(
+                        datos[1].trim()));
+                    dto.setPrecioCompra(Double.parseDouble(
+                        datos[2].trim()));
+                    dto.setIvacompra(Double.parseDouble(
+                        datos[3].trim()));
+                    dto.setPrecioVenta(Double.parseDouble(
+                        datos[4].trim()));
 
-                    // Validación de proveedor
-                    // (se activa cuando MS-Proveedores esté listo)
-                    if (validarProveedor) {
-                        // TODO: llamar a MS-Proveedores
-                        // validarNitProveedor(producto.getNitproveedor());
-                    }
+                    guardarProducto(dto);
+                    exitosos++;
 
-                    productosGuardados.add(producto);
-
-                } catch (NumberFormatException e) {
-                    errores.add("Línea " + linea +
-                            ": formato de número inválido");
+                } catch (Exception e) {
+                    fallidos++;
                 }
             }
 
         } catch (Exception e) {
             throw new RuntimeException(
-                    "Error al leer el archivo: " + e.getMessage());
+                "Error al procesar el archivo CSV: " 
+                + e.getMessage());
         }
 
-        // Guarda todos los productos válidos
-        if (!productosGuardados.isEmpty()) {
-            productoRepository.saveAll(productosGuardados);
-        }
-
-        // Construye el resumen
-        return String.format(
-                "Carga completada. Guardados: %d. Errores: %d. %s",
-                productosGuardados.size(),
-                errores.size(),
-                errores.isEmpty() ? "" : "Errores: " + errores
-        );
+        return "CSV procesado: " + exitosos 
+            + " exitosos, " + fallidos + " fallidos";
     }
 }

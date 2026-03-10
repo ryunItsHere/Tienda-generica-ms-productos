@@ -1,5 +1,6 @@
 package com.tiendagenerica.ms_productos.controller;
 
+import com.tiendagenerica.ms_productos.dto.ProductoDTO;
 import com.tiendagenerica.ms_productos.model.Producto;
 import com.tiendagenerica.ms_productos.service.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,45 +18,51 @@ public class ProductoController {
     @Autowired
     private ProductoService productoService;
 
-    // Listar todos los productos
     @GetMapping("/listar")
     public ResponseEntity<List<Producto>> listar() {
-        return ResponseEntity.ok(productoService.listarTodos());
+        return ResponseEntity.ok(
+            productoService.listarProductos());       // ← antes: listarTodos()
     }
 
-    // Buscar producto por código
     @GetMapping("/buscar/{codigo}")
-    public ResponseEntity<Producto> buscar(@PathVariable Long codigo) {
-        return ResponseEntity.ok(productoService.buscarPorCodigo(codigo));
+    public ResponseEntity<Producto> buscar(
+            @PathVariable Long codigo) {
+        return ResponseEntity.ok(
+            productoService.buscarPorCodigo(codigo)   // ← igual, pero ahora
+                .orElseThrow(() ->                    //   retorna Optional
+                    new RuntimeException(
+                        "Producto no encontrado: " 
+                        + codigo)));
     }
 
-    // Guardar un producto individual
     @PostMapping("/guardar")
-    public ResponseEntity<Producto> guardar(@RequestBody Producto producto) {
-        return ResponseEntity.ok(productoService.guardar(producto));
+    public ResponseEntity<Producto> guardar(
+            @RequestBody ProductoDTO dto) {           // ← antes: Producto
+        return ResponseEntity.ok(
+            productoService.guardarProducto(dto));    // ← antes: guardar()
     }
 
-    // Actualizar producto
     @PutMapping("/actualizar/{codigo}")
     public ResponseEntity<Producto> actualizar(
             @PathVariable Long codigo,
-            @RequestBody Producto producto) {
+            @RequestBody ProductoDTO dto) {           // ← antes: Producto
         return ResponseEntity.ok(
-                productoService.actualizar(codigo, producto));
+            productoService.actualizarProducto(       // ← antes: actualizar()
+                codigo, dto));
     }
 
-    // Eliminar producto
     @DeleteMapping("/eliminar/{codigo}")
-    public ResponseEntity<String> eliminar(@PathVariable Long codigo) {
-        productoService.eliminar(codigo);
-        return ResponseEntity.ok("Producto eliminado correctamente");
+    public ResponseEntity<String> eliminar(
+            @PathVariable Long codigo) {
+        productoService.eliminarProducto(codigo);     // ← antes: eliminar()
+        return ResponseEntity.ok(
+            "Producto eliminado correctamente");
     }
 
-    // Carga masiva desde CSV
     @PostMapping("/cargar-csv")
     public ResponseEntity<String> cargarCSV(
             @RequestParam("archivo") MultipartFile archivo) {
         return ResponseEntity.ok(
-                productoService.cargarDesdeCSV(archivo));
+            productoService.cargarDesdeCSV(archivo)); // ← igual
     }
 }
