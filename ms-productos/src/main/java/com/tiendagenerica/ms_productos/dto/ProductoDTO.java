@@ -10,4 +10,5 @@ public class ProductoDTO {
     private Double precioCompra;
     private Double ivacompra;
     private Double precioVenta;
+    private Integer stock;
 }

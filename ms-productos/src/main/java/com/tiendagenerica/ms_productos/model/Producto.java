@@ -32,4 +32,7 @@ public class Producto {
     @NotNull(message = "El precio de venta es obligatorio")
     @Column(name = "precio_venta", nullable = false)
     private Double precioVenta;
+
+    @Column(name = "stock" ,nullable = false)
+    private Integer stock = 0;
 }

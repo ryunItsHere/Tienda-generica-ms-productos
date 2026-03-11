@@ -50,7 +50,8 @@ public class ProductoService {
         producto.setPrecioCompra(dto.getPrecioCompra());
         producto.setIvacompra(dto.getIvacompra());
         producto.setPrecioVenta(dto.getPrecioVenta());
-
+        producto.setStock(dto.getStock() != null
+                ? dto.getStock() : 0);
         return productoRepository.save(producto);
     }
 
@@ -98,6 +99,8 @@ public class ProductoService {
         producto.setPrecioCompra(dto.getPrecioCompra());
         producto.setIvacompra(dto.getIvacompra());
         producto.setPrecioVenta(dto.getPrecioVenta());
+        producto.setStock(dto.getStock() != null
+                ? dto.getStock() : producto.getStock());
 
         return productoRepository.save(producto);
     }
@@ -161,4 +164,36 @@ public class ProductoService {
         return "CSV procesado: " + exitosos 
             + " exitosos, " + fallidos + " fallidos";
     }
+
+    // ─────────────────────────────────────────
+// Verificar stock disponible
+// → usado por MS-Ventas
+// ─────────────────────────────────────────
+    public boolean hayStock(Long codigo, Integer cantidad) {
+        Producto producto = productoRepository.findById(codigo)
+                .orElseThrow(() -> new RuntimeException(
+                        "Producto no encontrado: " + codigo));
+        return producto.getStock() >= cantidad;
+    }
+
+    // ─────────────────────────────────────────
+// Descontar stock al confirmar venta
+// → usado por MS-Ventas
+// ─────────────────────────────────────────
+    public void descontarStock(Long codigo, Integer cantidad) {
+        Producto producto = productoRepository.findById(codigo)
+                .orElseThrow(() -> new RuntimeException(
+                        "Producto no encontrado: " + codigo));
+
+        if (producto.getStock() < cantidad) {
+            throw new RuntimeException(
+                    "Stock insuficiente para: "
+                            + producto.getNombreProducto()
+                            + ". Disponible: " + producto.getStock());
+        }
+
+        producto.setStock(producto.getStock() - cantidad);
+        productoRepository.save(producto);
+    }
+
 }

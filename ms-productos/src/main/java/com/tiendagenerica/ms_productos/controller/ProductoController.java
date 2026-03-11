@@ -65,4 +65,25 @@ public class ProductoController {
         return ResponseEntity.ok(
             productoService.cargarDesdeCSV(archivo)); // ← igual
     }
+
+    // Verificar si hay stock suficiente
+// → usado por MS-Ventas
+    @GetMapping("/stock/{codigo}/{cantidad}")
+    public ResponseEntity<Boolean> verificarStock(
+            @PathVariable Long codigo,
+            @PathVariable Integer cantidad) {
+        return ResponseEntity.ok(
+                productoService.hayStock(codigo, cantidad));
+    }
+
+    // Descontar stock → llamado por MS-Ventas
+    @PutMapping("/descontar-stock/{codigo}/{cantidad}")
+    public ResponseEntity<String> descontarStock(
+            @PathVariable Long codigo,
+            @PathVariable Integer cantidad) {
+        productoService.descontarStock(codigo, cantidad);
+        return ResponseEntity.ok(
+                "Stock actualizado correctamente");
+    }
+
 }
