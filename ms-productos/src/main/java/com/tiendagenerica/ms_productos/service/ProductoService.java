@@ -146,6 +146,9 @@ public class ProductoService {
                         datos[3].trim()));
                     dto.setPrecioVenta(Double.parseDouble(
                         datos[4].trim()));
+                    if (datos.length > 5 && !datos[5].trim().isEmpty()) {
+                        dto.setStock(Integer.parseInt(datos[5].trim()));
+                    }
 
                     guardarProducto(dto);
                     exitosos++;
